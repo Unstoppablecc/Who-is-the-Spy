@@ -125,6 +125,20 @@ def touch(room):
     room["updated_at"] = time.time()
 
 
+def can_player_burst(room, player):
+    if not player:
+        return False
+    if room["status"] not in {"playing", "ended"}:
+        return False
+    if player.get("burst_used"):
+        return False
+    if player.get("role") not in {"undercover", "blank"}:
+        return False
+    if room["status"] == "ended":
+        return True
+    return player.get("eliminated")
+
+
 def public_state(room_code, player_id):
     room = rooms[room_code]
     player = room["players"].get(player_id)
@@ -135,9 +149,12 @@ def public_state(room_code, player_id):
         "room_code": room_code,
         "status": room["status"],
         "settings": room["settings"],
+        "game_id": room.get("game_id", 0),
         "is_host": player_id == room["host_id"],
         "my_number": player["number"] if player else None,
         "my_word": player.get("word") if player and room["status"] in {"playing", "ended"} else "",
+        "my_can_burst": can_player_burst(room, player),
+        "my_burst_used": bool(player.get("burst_used")) if player else False,
         "players": [
             {
                 "number": item["number"],
@@ -172,6 +189,7 @@ def create_player(name, number, client_id="", client_ip=""):
         "role": "",
         "word": "",
         "eliminated": False,
+        "burst_used": False,
     }
 
 
@@ -212,6 +230,7 @@ def create_room(name, client_id="", client_ip=""):
         "vote_record": [],
         "last_vote_result": None,
         "burst_record": [],
+        "game_id": 0,
         "updated_at": time.time(),
     }
     return room_code, player_id
@@ -430,6 +449,7 @@ def start_game(room):
             else "空白"
         )
         player["eliminated"] = False
+        player["burst_used"] = False
 
     room["words"] = words
     room["status"] = "playing"
@@ -438,6 +458,8 @@ def start_game(room):
     room["votes"] = {}
     room["vote_record"] = []
     room["last_vote_result"] = None
+    room["burst_record"] = []
+    room["game_id"] = room.get("game_id", 0) + 1
     touch(room)
 
 
@@ -709,12 +731,14 @@ class Handler(BaseHTTPRequestHandler):
                         player["role"] = ""
                         player["word"] = ""
                         player["eliminated"] = False
+                        player["burst_used"] = False
                     room["status"] = "waiting"
                     room["winner"] = None
                     room["undercover_numbers"] = []
                     room["votes"] = {}
                     room["vote_record"] = []
                     room["last_vote_result"] = None
+                    room["burst_record"] = []
                     touch(room)
                     self.send_json({"state": public_state(room_code, player_id)})
                     return
@@ -744,14 +768,23 @@ class Handler(BaseHTTPRequestHandler):
                     return
 
                 if action == "burst":
+                    player = room["players"].get(player_id)
+                    if not player:
+                        raise ValueError("玩家不在房间内")
+                    if player.get("burst_used"):
+                        raise ValueError("本局已经爆词过")
+                    if not can_player_burst(room, player):
+                        raise ValueError("只有出局的卧底或空白词玩家可以爆词")
                     guess = normalize_word(data.get("guess", ""))
+                    if not guess:
+                        raise ValueError("请输入猜测的词语")
                     civilian_word = normalize_word(room["words"].get("civilian", ""))
                     success = bool(guess and guess == civilian_word)
-                    player = room["players"].get(player_id)
+                    player["burst_used"] = True
                     burst_result = {
                         "player_number": player["number"] if player else 0,
                         "player_name": player["name"] if player else "",
-                        "guess": guess,
+                        "guess": "" if success else guess,
                         "success": success
                     }
                     room["burst_record"].append(burst_result)
