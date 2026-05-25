@@ -623,14 +623,10 @@ def vote(room, player_id, target_number):
     if not player:
         raise ValueError("玩家不存在")
 
-    active_players = [p for p in room["players"].values() if not p["eliminated"]]
-    eliminated_players = [p for p in room["players"].values() if p["eliminated"]]
-
     if player["eliminated"]:
-        if len(active_players) > 3:
-            raise ValueError("当前已淘汰玩家不能投票")
-        if len(eliminated_players) > 1:
-            raise ValueError("当前已淘汰玩家不能投票")
+        raise ValueError("已出局玩家不能投票")
+
+    active_players = [p for p in room["players"].values() if not p["eliminated"]]
 
     target = next((p for p in room["players"].values() if p["number"] == target_number and not p["eliminated"]), None)
     if not target:
@@ -638,8 +634,7 @@ def vote(room, player_id, target_number):
 
     room["votes"][player_id] = target_number
 
-    total_voters = len(active_players) + (1 if player["eliminated"] and len(active_players) <= 3 and len(eliminated_players) <= 1 else 0)
-    if len(room["votes"]) >= total_voters:
+    if len(room["votes"]) >= len(active_players):
         return tally_votes(room)
 
     return None
