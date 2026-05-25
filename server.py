@@ -512,51 +512,68 @@ def tally_votes(room):
     if not vote_count:
         return None
 
+    active_players = [p for p in room["players"].values() if not p["eliminated"]]
+    active_count = len(active_players)
+    
     max_votes = max(len(voters) for voters in vote_count.values())
     tied_numbers = [num for num, voters in vote_count.items() if len(voters) == max_votes]
     vote_details = build_vote_details(room)
-
-    if len(tied_numbers) > 1 and max_votes >= 2:
-        eliminated_list = []
-        for tied_number in tied_numbers:
-            eliminated_player = next(
-                (p for p in room["players"].values() if p["number"] == tied_number and not p["eliminated"]),
-                None
-            )
-            if eliminated_player:
-                eliminated_player["eliminated"] = True
-                eliminated_list.append({"number": tied_number, "role": eliminated_player["role"], "name": eliminated_player["name"]})
-
-        vote_count_detail = {}
-        for num, voters in vote_count.items():
-            player = next((p for p in room["players"].values() if p["number"] == num), None)
-            vote_count_detail[num] = {"name": player["name"] if player else str(num), "count": len(voters)}
-
-        room["vote_record"].append({"type": "multiple_eliminated", "eliminated_list": eliminated_list, "votes": dict(room["votes"]), "vote_details": vote_details})
-        room["votes"] = {}
-        room["last_vote_result"] = {
-            "eliminated_list": [
-                {
-                    "number": e["number"],
-                    "role": e["role"],
-                    "name": e["name"],
-                    "is_undercover": e["role"] == "undercover",
-                    "is_blank": e["role"] == "blank",
-                    "is_civilian": e["role"] == "civilian",
-                }
-                for e in eliminated_list
-            ],
-            "vote_details": vote_details,
-            "vote_count": vote_count_detail
-        }
-        evaluate_game(room)
-        return {"type": "multiple_eliminated", "eliminated_list": eliminated_list, "vote_details": vote_details, "vote_count": vote_count_detail}
 
     if len(tied_numbers) > 1:
         vote_count_detail = {}
         for num, voters in vote_count.items():
             player = next((p for p in room["players"].values() if p["number"] == num), None)
             vote_count_detail[num] = {"name": player["name"] if player else str(num), "count": len(voters)}
+        
+        # 检查是否剩余3人及以下且出现平票
+        if active_count <= 3:
+            # 剩余3人及以下平票，判定卧底胜利
+            room["status"] = "ended"
+            room["winner"] = "undercover"
+            room["undercover_numbers"] = sorted(
+                player["number"] for player in room["players"].values() if player["role"] == "undercover"
+            )
+            room["vote_record"].append({"type": "tie_undercover_win", "tied_numbers": tied_numbers, "votes": dict(room["votes"]), "vote_details": vote_details})
+            room["votes"] = {}
+            room["last_vote_result"] = {
+                "type": "tie_undercover_win",
+                "tied_numbers": sorted(tied_numbers),
+                "vote_count": max_votes,
+                "vote_details": vote_details,
+                "vote_count_detail": vote_count_detail
+            }
+            return {"type": "tie_undercover_win", "tied_numbers": sorted(tied_numbers), "vote_count": max_votes, "vote_details": vote_details, "vote_count_detail": vote_count_detail}
+        
+        if max_votes >= 2:
+            eliminated_list = []
+            for tied_number in tied_numbers:
+                eliminated_player = next(
+                    (p for p in room["players"].values() if p["number"] == tied_number and not p["eliminated"]),
+                    None
+                )
+                if eliminated_player:
+                    eliminated_player["eliminated"] = True
+                    eliminated_list.append({"number": tied_number, "role": eliminated_player["role"], "name": eliminated_player["name"]})
+
+            room["vote_record"].append({"type": "multiple_eliminated", "eliminated_list": eliminated_list, "votes": dict(room["votes"]), "vote_details": vote_details})
+            room["votes"] = {}
+            room["last_vote_result"] = {
+                "eliminated_list": [
+                    {
+                        "number": e["number"],
+                        "role": e["role"],
+                        "name": e["name"],
+                        "is_undercover": e["role"] == "undercover",
+                        "is_blank": e["role"] == "blank",
+                        "is_civilian": e["role"] == "civilian",
+                    }
+                    for e in eliminated_list
+                ],
+                "vote_details": vote_details,
+                "vote_count": vote_count_detail
+            }
+            evaluate_game(room)
+            return {"type": "multiple_eliminated", "eliminated_list": eliminated_list, "vote_details": vote_details, "vote_count": vote_count_detail}
 
         room["vote_record"].append({"type": "tie", "tied_numbers": tied_numbers, "votes": dict(room["votes"]), "vote_details": vote_details})
         room["votes"] = {}

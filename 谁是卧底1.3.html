@@ -1115,6 +1115,8 @@
           setStatus(`投票结束：${result.name}${roleText}出局`);
         } else if (result.type === "tie") {
           setStatus(`投票结束：${result.tied_numbers.join("、")}号玩家平票，无人出局`);
+        } else if (result.type === "tie_undercover_win") {
+          setStatus(`投票结束：${result.tied_numbers.join("、")}号玩家平票，卧底胜利！`);
         } else if (result.type === "draw") {
           setStatus("投票结束：平票，无人出局");
         }
@@ -1315,7 +1317,9 @@
 
         if (lastResult) {
           let resultText;
-          if (lastResult.eliminated_list) {
+          if (lastResult.type === "tie_undercover_win") {
+            resultText = `平票！卧底胜利！`;
+          } else if (lastResult.eliminated_list) {
             const names = lastResult.eliminated_list.map((e) => {
               const roleText = e.is_undercover ? "卧底" : e.is_blank ? "空白" : "平民";
               return `${e.name}${roleText}`;
@@ -1381,7 +1385,9 @@
 
         if (lastResult) {
           let resultText;
-          if (lastResult.eliminated_list) {
+          if (lastResult.type === "tie_undercover_win") {
+            resultText = `平票！卧底胜利！`;
+          } else if (lastResult.eliminated_list) {
             const names = lastResult.eliminated_list.map((e) => {
               const roleText = e.is_undercover ? "卧底" : e.is_blank ? "空白" : "平民";
               return `${e.name}${roleText}`;
