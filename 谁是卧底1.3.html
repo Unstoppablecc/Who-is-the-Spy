@@ -1101,15 +1101,37 @@
     }
 
     async function castVote(number) {
-      // 前端检查：如果自己已出局，直接禁止投票
+      // 强制从服务器获取最新状态
+      if (state.roomCode && state.playerId) {
+        try {
+          const freshState = await api(`/api/rooms/${state.roomCode}/state?player_id=${encodeURIComponent(state.playerId)}&_t=${Date.now()}`);
+          if (freshState.state) {
+            applyState(freshState.state);
+            // 重新检查出局状态
+            const freshMyPlayer = freshState.state.players.find(p => p.is_you);
+            if (freshMyPlayer && freshMyPlayer.eliminated) {
+              console.log("[投票] 检测到已出局，禁止投票");
+              setStatus("你已经出局了，不能投票", true);
+              return;
+            }
+          }
+        } catch (e) {
+          console.error("[投票] 获取最新状态失败:", e);
+        }
+      }
+      
+      // 本地状态检查
       if (state.data) {
         const myPlayer = state.data.players.find(p => p.is_you);
+        console.log("[投票] 当前玩家状态:", myPlayer ? { number: myPlayer.number, name: myPlayer.name, eliminated: myPlayer.eliminated } : "未找到");
         if (myPlayer && myPlayer.eliminated) {
+          console.log("[投票] 已出局，禁止投票");
           setStatus("你已经出局了，不能投票", true);
           return;
         }
       }
       
+      console.log("[投票] 发起投票请求，目标玩家:", number);
       const data = await api(`/api/rooms/${state.roomCode}/vote`, {
         method: "POST",
         body: { player_id: state.playerId, number }
@@ -1483,6 +1505,12 @@
       const myPlayer = data.players.find(p => p.is_you);
       const iAmEliminated = myPlayer ? myPlayer.eliminated : false;
 
+      console.log("[renderPlayers] 当前玩家状态:", {
+        myPlayer: myPlayer ? { number: myPlayer.number, name: myPlayer.name, eliminated: myPlayer.eliminated } : null,
+        iAmEliminated: myPlayer ? myPlayer.eliminated : false,
+        isPlaying: isPlaying
+      });
+
       data.players.forEach((player) => {
         const card = document.createElement("div");
         const number = document.createElement("div");
@@ -1561,6 +1589,13 @@
           button.textContent = "投票";
           button.disabled = hasVoted;
           button.addEventListener("click", () => {
+            // 点击时再次检查
+            const currentPlayer = state.data?.players.find(p => p.is_you);
+            if (currentPlayer && currentPlayer.eliminated) {
+              console.log("[投票按钮点击] 已出局，禁止投票");
+              setStatus("你已经出局了，不能投票", true);
+              return;
+            }
             castVote(player.number).catch((error) => setStatus(error.message, true));
           });
           card.appendChild(button);
