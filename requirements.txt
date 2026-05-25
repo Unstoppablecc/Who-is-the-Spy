@@ -1,2 +1,12 @@
-# 当前 server.py 使用 Python 标准库即可运行。
-# 如果后续改为 FastAPI/WebSocket，可再添加 fastapi、uvicorn、httpx。
+# 谁是卧底游戏 - 依赖说明
+# 版本：1.4.0
+# 
+# 本项目当前使用 Python 标准库即可运行，无需额外依赖！
+# 
+# Python 版本要求：3.8+（建议使用 3.10+）
+#
+# 如果后续改为 FastAPI/WebSocket 等框架，可再添加以下依赖：
+# fastapi>=0.100.0
+# uvicorn>=0.23.0
+# httpx>=0.24.0
+
