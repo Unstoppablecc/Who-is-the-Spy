@@ -657,7 +657,14 @@ class Handler(BaseHTTPRequestHandler):
         clean_rooms()
         parsed = urlparse(self.path)
         if parsed.path in {"/", "/index.html"}:
-            self.send_text(HTML_FILE.read_text(encoding="utf-8"), "text/html; charset=utf-8")
+            # 防缓存头，确保用户总是拿到最新的页面
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
+            self.end_headers()
+            self.wfile.write(HTML_FILE.read_text(encoding="utf-8").encode("utf-8"))
             return
         if parsed.path == "/api/health":
             self.send_json({"ok": True})
@@ -833,6 +840,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        # 防缓存头，确保总是返回最新版本
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
         self.end_headers()
         self.wfile.write(body)
 
@@ -841,6 +852,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        # 防缓存头，确保 API 返回最新数据
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
         self.end_headers()
         self.wfile.write(body)
 

@@ -1101,6 +1101,15 @@
     }
 
     async function castVote(number) {
+      // 前端检查：如果自己已出局，直接禁止投票
+      if (state.data) {
+        const myPlayer = state.data.players.find(p => p.is_you);
+        if (myPlayer && myPlayer.eliminated) {
+          setStatus("你已经出局了，不能投票", true);
+          return;
+        }
+      }
+      
       const data = await api(`/api/rooms/${state.roomCode}/vote`, {
         method: "POST",
         body: { player_id: state.playerId, number }
