@@ -1470,6 +1470,10 @@
         votePanel.innerHTML = "";
       }
 
+      // 首先找到当前玩家，检查自己是否已出局
+      const myPlayer = data.players.find(p => p.is_you);
+      const iAmEliminated = myPlayer ? myPlayer.eliminated : false;
+
       data.players.forEach((player) => {
         const card = document.createElement("div");
         const number = document.createElement("div");
@@ -1537,7 +1541,8 @@
         name.textContent = `${player.name}${eliminatedText}`;
         card.append(number, name);
 
-        if (isPlaying && !player.eliminated) {
+        // 关键修改：只有在我没有出局时，才显示投票按钮
+        if (isPlaying && !iAmEliminated && !player.eliminated) {
           const myVote = voteInfo.my_vote;
           const hasVoted = myVote !== undefined && myVote !== null;
           const isMyTarget = myVote === player.number;
