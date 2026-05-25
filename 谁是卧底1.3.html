@@ -1006,16 +1006,20 @@
         if (error.message.includes("房间不存在") || error.message.includes("玩家不在房间内")) {
           clearSession();
           window.clearInterval(state.pollTimer);
+          setStatus(error.message, true);
         }
-        throw error;
+        // 不要抛出错误，避免影响轮询
       }
     }
 
     function startPolling() {
       window.clearInterval(state.pollTimer);
       state.pollTimer = window.setInterval(() => {
-        pollState().catch((error) => setStatus(error.message, true));
-      }, 1500);
+        pollState().catch((error) => {
+        // 静默处理轮询错误，不显示在界面上显示，避免干扰用户
+        console.error("Polling error:", error);
+      });
+      }, 1000);
     }
 
     async function startGame() {
